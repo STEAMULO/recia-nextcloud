@@ -514,6 +514,22 @@ class ShareesAPIController extends OCSController {
             }
             else {
                 if ($lookupSchool === true) {
+                    $currentSiren = $this->getCurrentSirenSchool();
+                    $currentEtablissementId = null;
+                    if (!is_null($currentSiren)) {
+                        $queryCurrentSiren = $this->db->getQueryBuilder();
+                        $queryCurrentSiren->select('id')
+                            ->from('etablissements')
+                            ->where($queryCurrentSiren->expr()->eq('siren', $queryCurrentSiren->createNamedParameter(
+                                $currentSiren
+                            )));
+
+                        $etablissements = $queryCurrentSiren->execute()->fetchAll();
+                        if (count($etablissements) > 0) {
+                            $currentEtablissementId = $etablissements[0]['id'];
+                        }
+                    }
+
                     $qb = $this->db->getQueryBuilder();
                     $qb->select('id_etablissement')
                         ->from('asso_uai_user_group')
@@ -530,6 +546,9 @@ class ShareesAPIController extends OCSController {
                             $userIdEtablissement,
                             Connection::PARAM_STR_ARRAY
                         )));
+                    if (!is_null($currentEtablissementId)) {
+                        $query->orWhere($query->expr()->eq('id_etablissement', $query->createNamedParameter($currentEtablissementId)));
+                    }
                     $searchedUserGroup = array_map(function ($userGroup) {
                         return $userGroup['user_group'];
                     }, $query->execute()->fetchAll());
