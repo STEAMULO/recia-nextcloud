@@ -8,6 +8,7 @@ use OCA\LdapImporter\Service\Import\AdImporter;
 use OCA\LdapImporter\Service\Import\ImporterInterface;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -43,16 +44,23 @@ class ImportUsersAd extends Command
     private $db;
 
     /**
+     * @var IGroupManager
+     */
+    private $groupManager;
+
+    /**
      * ImportUsersAd constructor.
      * @param IDBConnection $db
+     * @param IGroupManager $groupManager
      */
-    public function __construct(IDBConnection $db)
+    public function __construct(IDBConnection $db, IGroupManager $groupManager)
     {
         parent::__construct();
 
         $this->userManager = \OC::$server->getUserManager();
         $this->config = \OC::$server->getConfig();
         $this->db = $db;
+        $this->groupManager = $groupManager;
 
     }
 
@@ -108,7 +116,7 @@ class ImportUsersAd extends Command
                 /**
                  * @var ImporterInterface $importer
                  */
-                $importer = new AdImporter($this->config, $this->db, $input->getOption('ldap-filter'));
+                $importer = new AdImporter($this->config, $this->db, $this->groupManager, $input->getOption('ldap-filter'));
                 $output->writeln('Construct done');
 
                 $importer->init($logger);
