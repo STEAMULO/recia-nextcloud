@@ -287,7 +287,6 @@ class AdImporter implements ImporterInterface
 
                                         $idEtab = $this->addEtablissement($uaiEtab, $nameEtablissement, $sirenEtab);
                                         $assoEtablissementUaiOrNameAndId[$assoEtab] = $idEtab;
-                                        $this->addEtablissementAsso($idEtab, $employeeID);
                                     }
                                 }
                             }

@@ -24,6 +24,7 @@
         <command>OCA\LdapImporter\Command\CreateUser</command>
         <command>OCA\LdapImporter\Command\UpdateUser</command>
         <command>OCA\LdapImporter\Command\ImportUsersAd</command>
+        <command>OCA\LdapImporter\Command\DisableDeletedUser</command>
     </commands>
 
     <settings>
