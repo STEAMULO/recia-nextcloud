@@ -7,6 +7,7 @@ use OCA\LdapImporter\Service\Merge\AdUserMerger;
 use OCA\LdapImporter\Service\Merge\MergerInterface;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IGroupManager;
 use Psr\Log\LoggerInterface;
 
 
@@ -21,6 +22,8 @@ use Psr\Log\LoggerInterface;
  */
 class AdImporter implements ImporterInterface
 {
+
+    const ALL_GROUP = "Tous";
 
     /**
      * @var boolean|resource
@@ -58,16 +61,23 @@ class AdImporter implements ImporterInterface
     private $ldapFilter;
 
     /**
+     * @var \OCP\IGroupManager
+     */
+    private $groupManager;
+
+    /**
      * AdImporter constructor.
      * @param IConfig $config
      * @param IDBConnection $db
      * @param $ldapFilter
+     * @param IGroupManager $groupManager
      */
-    public function __construct(IConfig $config, IDBConnection $db, $ldapFilter)
+    public function __construct(IConfig $config, IDBConnection $db, IGroupManager $groupManager, $ldapFilter)
     {
         $this->config = $config;
         $this->db = $db;
         $this->ldapFilter = $ldapFilter;
+        $this->groupManager = $groupManager;
     }
 
 
@@ -135,6 +145,7 @@ class AdImporter implements ImporterInterface
 
         //On ajoute des nouveaux éléments qu'on récupère du ldap pour les groupe
         $keep[] = 'ESCOUAICourant';
+        $keep[] = 'ESCOSIREN';
         if (sizeof($arrayGroupsAttrPedagogic) > 0) {
             foreach ($arrayGroupsAttrPedagogic as $groupsAttrPedagogic) {
                 if (array_key_exists("field", $groupsAttrPedagogic) && strlen($groupsAttrPedagogic["field"]) > 0 &&
@@ -415,10 +426,17 @@ class AdImporter implements ImporterInterface
                 # Fill the users array only if we have an employeeId and addUser is true
                 if (isset($employeeID) && $addUser) {
                     $this->logger->info("Groupes pédagogique : Ajout de l'utilisateur avec id  : " . $employeeID);
-
+                    if (!$this->groupManager->groupExists(AdImporter::ALL_GROUP)) {
+                        $this->groupManager->createGroup(AdImporter::ALL_GROUP);
+                    }
+                    array_push($groupsArray, AdImporter::ALL_GROUP);
                     $uaiCourant = '';
                     if (array_key_exists('escouaicourant', $m) && $m['escouaicourant']['count'] > 0) {
                         $uaiCourant = $m['escouaicourant'][0];
+                    }
+                    if (array_key_exists('escosiren', $m) && $m['escosiren']['count'] > 0) {
+                        $idEtablishement = $this->getIdEtablissementFromSiren($m['escosiren'][0]);
+                        $this->addEtablissementAsso($idEtablishement, $employeeID);
                     }
                     $this->merger->mergeUsers($users, ['uid' => $employeeID, 'displayName' => $displayName, 'email' => $mail, 'quota' => $quota, 'groups' => $groupsArray, 'enable' => $enable, 'dn' => $dn, 'uai_courant' => $uaiCourant], $mergeAttribute, $preferEnabledAccountsOverDisabled, $primaryAccountDnStartswWith);
                 }
@@ -429,6 +447,7 @@ class AdImporter implements ImporterInterface
 
         return $users;
     }
+
 
     /**
      *
@@ -512,6 +531,26 @@ class AdImporter implements ImporterInterface
             $idEtabs = $result->fetchAll()[0];
             return $idEtabs["id"];
         }
+    }
+
+    /**
+     * Récupération de l'id d'un etablissement depuis son siren
+     *
+     * @param $uai
+     * @return mixed
+     */
+    protected function getIdEtablissementFromSiren($siren)
+    {
+        if (!is_null($siren)) {
+            $qb = $this->db->getQueryBuilder();
+            $qb->select('id')
+                ->from('etablissements')
+                ->where($qb->expr()->eq('siren', $qb->createNamedParameter($siren)));
+            $result = $qb->execute();
+            $idEtabs = $result->fetchAll()[0];
+            return $idEtabs["id"];
+        }
+        return null;
     }
 
     /**
