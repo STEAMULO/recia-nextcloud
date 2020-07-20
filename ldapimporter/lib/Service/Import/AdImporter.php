@@ -190,6 +190,7 @@ class AdImporter implements ImporterInterface
                 $employeeID = isset($m[$uidAttribute][0]) ? $m[$uidAttribute][0] : "";
                 $mail = isset($m[$emailAttribute][0]) ? $m[$emailAttribute][0] : "";
                 $dn = isset($m[$dnAttribute]) ? $m[$dnAttribute] : "";
+                $idsEtabUser = [];
 
                 $displayName = $employeeID;
 
@@ -323,6 +324,7 @@ class AdImporter implements ImporterInterface
                                                 $idEtablissement = $assoEtablissementUaiOrNameAndId[$nameOrUaiFromUaiNumber[0]];
                                                 $this->addEtablissementAsso($idEtablissement, $groupName);
                                                 $this->addEtablissementAsso($idEtablissement, $employeeID);
+                                                $idsEtabUser[] = $idEtablissement;
                                             }
                                             elseif (!is_null($groupFilterMatches[intval($groupFilter["uaiNumber"])]) && !array_key_exists($groupFilterMatches[intval($groupFilter["uaiNumber"])], $assoEtablissementUaiOrNameAndId)) {
                                                 $this->logger->debug("L'établissement avec le nom/Uai : " . $groupFilterMatches[intval($groupFilter["uaiNumber"])] . " n'existe pas");
@@ -399,6 +401,7 @@ class AdImporter implements ImporterInterface
                                                 $this->addEtablissementAsso($idEtablishement, $groupName);
                                             }
                                             $this->addEtablissementAsso($idEtablishement, $employeeID);
+                                            $idsEtabUser[] = $idEtablissement;
                                         }
 
 										if ($groupName && strlen($groupName) > 0) {
@@ -423,7 +426,9 @@ class AdImporter implements ImporterInterface
                     }
                     if (array_key_exists('escosiren', $m) && $m['escosiren']['count'] > 0) {
                         $this->addEtablissementAssoForAllEscosiren($m['escosiren'], $employeeID);
+                        $idsEtabUser = array_merge($idsEtabUser, $this->getIdsEtablissementFromSirenArray($m['escosiren']));
                     }
+                    $this->removeObsoleteAssoUaiUser(array_unique($idsEtabUser), $employeeID);
                     $this->merger->mergeUsers($users, ['uid' => $employeeID, 'displayName' => $displayName, 'email' => $mail, 'quota' => $quota, 'groups' => $groupsArray, 'enable' => $enable, 'dn' => $dn, 'uai_courant' => $uaiCourant], $mergeAttribute, $preferEnabledAccountsOverDisabled, $primaryAccountDnStartswWith);
                 }
             }
@@ -434,6 +439,57 @@ class AdImporter implements ImporterInterface
         return $users;
     }
 
+    /**
+     *
+     * @param $currentEtablishementIds
+     * @param $uid
+     * @return void
+     */
+    protected function removeObsoleteAssoUaiUser($currentEtablishementIds, $uid)
+    {
+        $qbAsso = $this->db->getQueryBuilder();
+        $qbAsso->select('id_etablissement')
+            ->from('asso_uai_user_group')
+            ->where($qbAsso->expr()->eq('user_group', $qbAsso->createNamedParameter($uid)))
+        ;
+        $result = $qbAsso->execute();
+        $etablissement = $result->fetchAll();
+
+        if (sizeof($etablissement) !== 0) {
+            $idsEtab = array_unique(array_map(function ($asso) {
+                return $asso['id_etablissement'];
+            }, $etablissement));
+            $idsToDelete = array_diff($idsEtab, $currentEtablishementIds);
+
+            foreach ($idsToDelete as $idToDelete) {
+                $qbDelete = $this->db->getQueryBuilder();
+                $qbDelete->delete('asso_uai_user_group')
+                    ->where($qbDelete->expr()->eq('id_etablissement', $qbDelete->createNamedParameter($idToDelete)))
+                    ->andWhere($qbDelete->expr()->eq('user_group', $qbDelete->createNamedParameter($uid)))
+                ;
+                $qbDelete->execute();
+            }
+        }
+    }
+
+    /**
+     *
+     * @param $escosirenArray
+     * @return array
+     */
+    protected function getIdsEtablissementFromSirenArray($escosirenArray)
+    {
+        $idsEtab = [];
+        foreach ($escosirenArray as $key => $escosiren) {
+            if ($key !== "count") {
+                $idEtablishement = $this->getIdEtablissementFromSiren($escosiren);
+                if (!is_null($idEtablishement)) {
+                    $idsEtab[] = $idEtablishement;
+                }
+            }
+        }
+        return $idsEtab;
+    }
 
     /**
      *
