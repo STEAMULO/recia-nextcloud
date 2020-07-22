@@ -11,10 +11,29 @@ A placer dans le dossier apps/ de nextcloud
 
 ## Utilisation
 
-La commande pour importer les utilisateurs du LDAP à la BDD :
+###La commande pour importer les utilisateurs du LDAP à la BDD :
 
 ```
 sudo -u www-data php occ ldap:import-users-ad
+```
+
+###La commande pour désactiver les utilisateurs qui sont dans la BDD mais plus dans le LDAP :
+
+```
+sudo -u www-data php occ ldap:disable-deleted-user
+```
+
+Il y a 3 paramètres pour précisé les utilisteurs à désactivé :
+
+- Un ou plusieurs utilisateurs : `-u` avec la liste des UID à désactivé, exemple : `sudo -u www-data php occ ldap:disable-deleted-user -u 'FK001it,FK001ir'`
+- Un ou plusieurs établissements basé sur l'uai : `-uai` avec la liste des uai à désactivé, exemple : `sudo -u www-data php occ ldap:disable-deleted-user -uai '154896548,154896549'`
+- Un ou plusieurs établissements basé sur le siren : `-s` avec la liste des siren à désactivé, exemple : `sudo -u www-data php occ ldap:disable-deleted-user -siren '111111111,111111112'`
+
+
+###La commande pour supprimer tous les utilisateurs désactivés :
+
+```
+sudo -u www-data php occ ldap:remove-disabled-user 
 ```
 
 # School Sharing
