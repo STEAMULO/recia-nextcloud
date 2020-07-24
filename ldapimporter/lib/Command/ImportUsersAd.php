@@ -116,7 +116,7 @@ class ImportUsersAd extends Command
                 /**
                  * @var ImporterInterface $importer
                  */
-                $importer = new AdImporter($this->config, $this->db, $this->groupManager, $input->getOption('ldap-filter'));
+                $importer = new AdImporter($this->config, $this->db, $input->getOption('ldap-filter'));
                 $output->writeln('Construct done');
 
                 $importer->init($logger);
